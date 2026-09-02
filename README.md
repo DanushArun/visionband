@@ -6,6 +6,9 @@ It **complements a white cane** — it does not replace one. A cane gives physic
 
 No implant. Everything routes through existing hearing and touch.
 
+<img width="3024" height="1898" alt="Screenshot 2026-09-02 at 10 18 33 AM" src="https://github.com/user-attachments/assets/f932c33e-6576-4ce1-8e64-5a0450380734" />
+
+
 ## Where the project is
 
 **M0 — simulation.** Proving in software that ranging sensors on a head can reconstruct a usable picture of a room, and that the picture can be heard. No hardware has been bought, and none will be until M0's gates pass.
