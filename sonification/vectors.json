@@ -1,0 +1,348 @@
+{
+  "spec": "0.1",
+  "generated": "deterministic",
+  "vectors": [
+    {
+      "name": "empty — nothing in range",
+      "input": [],
+      "sectorMap": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "audio": [],
+      "haptics": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "single obstacle dead ahead at 1 m",
+      "input": [
+        {
+          "bearingDeg": 0,
+          "distance": 1,
+          "elevation": 0
+        }
+      ],
+      "sectorMap": [
+        1,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "audio": [
+        {
+          "sector": 0,
+          "gain": 0.714943,
+          "pan": 0,
+          "carrierHz": 220,
+          "tremoloHz": 10.579313,
+          "tremoloDepth": 0.671724,
+          "lowpassHz": 20000
+        }
+      ],
+      "haptics": [
+        0.477966,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "front/back pair — the pan ambiguity case",
+      "input": [
+        {
+          "bearingDeg": 0,
+          "distance": 1.5,
+          "elevation": 0
+        },
+        {
+          "bearingDeg": 180,
+          "distance": 1.5,
+          "elevation": 0
+        }
+      ],
+      "sectorMap": [
+        1.5,
+        null,
+        null,
+        null,
+        1.5,
+        null,
+        null,
+        null
+      ],
+      "audio": [
+        {
+          "sector": 0,
+          "gain": 0.534049,
+          "pan": 0,
+          "carrierHz": 220,
+          "tremoloHz": 8.40859,
+          "tremoloDepth": 0.590322,
+          "lowpassHz": 20000
+        },
+        {
+          "sector": 4,
+          "gain": 0.534049,
+          "pan": 0,
+          "carrierHz": 220,
+          "tremoloHz": 8.40859,
+          "tremoloDepth": 0.590322,
+          "lowpassHz": 1200
+        }
+      ],
+      "haptics": [
+        0.251582,
+        0,
+        0.251582,
+        0
+      ]
+    },
+    {
+      "name": "hard left at 0.5 m — should saturate and pan fully",
+      "input": [
+        {
+          "bearingDeg": -90,
+          "distance": 0.5,
+          "elevation": 0
+        }
+      ],
+      "sectorMap": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        0.5,
+        null
+      ],
+      "audio": [
+        {
+          "sector": 6,
+          "gain": 0.914926,
+          "pan": -1,
+          "carrierHz": 220,
+          "tremoloHz": 12.979116,
+          "tremoloDepth": 0.761717,
+          "lowpassHz": 20000
+        }
+      ],
+      "haptics": [
+        0,
+        0,
+        0,
+        0.822336
+      ]
+    },
+    {
+      "name": "corridor — all eight sectors occupied, gating must cut to three",
+      "input": [
+        {
+          "bearingDeg": 0,
+          "distance": 1,
+          "elevation": 0
+        },
+        {
+          "bearingDeg": 45,
+          "distance": 1.3,
+          "elevation": 0
+        },
+        {
+          "bearingDeg": 90,
+          "distance": 1.6,
+          "elevation": 0
+        },
+        {
+          "bearingDeg": 135,
+          "distance": 1.9,
+          "elevation": 0
+        },
+        {
+          "bearingDeg": 180,
+          "distance": 2.2,
+          "elevation": 0
+        },
+        {
+          "bearingDeg": 225,
+          "distance": 2.5,
+          "elevation": 0
+        },
+        {
+          "bearingDeg": 270,
+          "distance": 2.8,
+          "elevation": 0
+        },
+        {
+          "bearingDeg": 315,
+          "distance": 3.1,
+          "elevation": 0
+        }
+      ],
+      "sectorMap": [
+        1,
+        1.3,
+        1.6,
+        1.9,
+        2.2,
+        2.5,
+        2.8,
+        3.1
+      ],
+      "audio": [
+        {
+          "sector": 0,
+          "gain": 0.714943,
+          "pan": 0,
+          "carrierHz": 220,
+          "tremoloHz": 10.579313,
+          "tremoloDepth": 0.671724,
+          "lowpassHz": 20000
+        },
+        {
+          "sector": 1,
+          "gain": 0.604031,
+          "pan": 0.707107,
+          "carrierHz": 220,
+          "tremoloHz": 9.248373,
+          "tremoloDepth": 0.621814,
+          "lowpassHz": 20000
+        },
+        {
+          "sector": 2,
+          "gain": 0.500282,
+          "pan": 1,
+          "carrierHz": 220,
+          "tremoloHz": 8.003389,
+          "tremoloDepth": 0.575127,
+          "lowpassHz": 20000
+        }
+      ],
+      "haptics": [
+        0.477966,
+        0.329861,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "head-height beam — elevated return raises carrier pitch",
+      "input": [
+        {
+          "bearingDeg": 0,
+          "distance": 2,
+          "elevation": 9
+        }
+      ],
+      "sectorMap": [
+        2,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "audio": [
+        {
+          "sector": 0,
+          "gain": 0.373702,
+          "pan": 0,
+          "carrierHz": 369.994423,
+          "tremoloHz": 6.484422,
+          "tremoloDepth": 0.518166,
+          "lowpassHz": 20000
+        }
+      ],
+      "haptics": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "out of range — 4.5 m is silent",
+      "input": [
+        {
+          "bearingDeg": 45,
+          "distance": 4.5,
+          "elevation": 0
+        }
+      ],
+      "sectorMap": [
+        null,
+        4.5,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "audio": [],
+      "haptics": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "nearest-of-sector — two returns in one sector, nearest wins",
+      "input": [
+        {
+          "bearingDeg": 10,
+          "distance": 3,
+          "elevation": 0
+        },
+        {
+          "bearingDeg": -10,
+          "distance": 0.8,
+          "elevation": 0
+        }
+      ],
+      "sectorMap": [
+        0.8,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "audio": [
+        {
+          "sector": 0,
+          "gain": 0.792715,
+          "pan": 0,
+          "carrierHz": 220,
+          "tremoloHz": 11.512583,
+          "tremoloDepth": 0.706722,
+          "lowpassHz": 20000
+        }
+      ],
+      "haptics": [
+        0.599871,
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

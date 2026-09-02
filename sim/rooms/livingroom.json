@@ -1,0 +1,48 @@
+{
+  "source": "Room.obj",
+  "vertexCount": 49248,
+  "triangleCount": 104624,
+  "indexType": "Uint16",
+  "cellSize": 0.015,
+  "dims": {
+    "x": 5.666751403808594,
+    "y": 2.4897807244890946,
+    "z": 8.850340576171876
+  },
+  "ceilingHeight": 2.4897807244890946,
+  "classes": [
+    {
+      "name": "floor",
+      "reflectivity": 0.55
+    },
+    {
+      "name": "ceiling",
+      "reflectivity": 0.7
+    },
+    {
+      "name": "wall",
+      "reflectivity": 0.85
+    },
+    {
+      "name": "furniture",
+      "reflectivity": 0.4
+    }
+  ],
+  "layout": [
+    {
+      "name": "positions",
+      "type": "Float32",
+      "count": 147744
+    },
+    {
+      "name": "indices",
+      "type": "Uint16",
+      "count": 313872
+    },
+    {
+      "name": "triangleClass",
+      "type": "Uint8",
+      "count": 104624
+    }
+  ]
+}
