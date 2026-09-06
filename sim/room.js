@@ -8,15 +8,10 @@
 
 import { BVH } from './bvh.js';
 import { World } from './world.js';
+import { CLASS_RGB } from './palette.js';
 
-/** Display colours per class. Deliberately flat and unlit — this panel is a
- *  reference for "what is really there", not a render. */
-const CLASS_COLOR = [
-  0x5d5a54, // floor
-  0x46454a, // ceiling
-  0x8a857c, // wall
-  0xa86f52, // furniture
-];
+/** Ceiling class index — hidden from the truth panel, still raycast. */
+const CEILING = 1;
 
 export function decodeRoom(buffer, meta) {
   const IndexArray = meta.indexType === 'Uint32' ? Uint32Array : Uint16Array;
@@ -64,22 +59,39 @@ export function buildRoomWorld(buffer, meta) {
   fill.position.set(-4, 2, -5);
   scene.add(fill);
 
-  // One mesh, vertex-coloured by class, rather than four meshes — the classes
-  // interleave triangle-by-triangle after decimation.
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geo.setIndex(new THREE.BufferAttribute(indices, 1));
+  // Non-indexed so each triangle carries its own class colour exactly. Indexed
+  // geometry shares vertices between triangles of different classes, and the
+  // last write would win — a wall vertex could end up furniture-coloured.
+  //
+  // The ceiling is excluded from the *display* only. It stays in the BVH, so
+  // upward-tilted zones still return off it; but a 2.5 m room cannot be looked
+  // into with its lid on, and this panel exists to be looked at.
+  let visible = 0;
+  for (let t = 0; t < meta.triangleCount; t++) if (triClass[t] !== CEILING) visible++;
 
-  const colors = new Float32Array(meta.vertexCount * 3);
-  const col = new THREE.Color();
+  const dPos = new Float32Array(visible * 9);
+  const dCol = new Float32Array(visible * 9);
+  let w = 0;
   for (let t = 0; t < meta.triangleCount; t++) {
-    col.setHex(CLASS_COLOR[triClass[t]] ?? 0x808080);
-    for (let k = 0; k < 3; k++) {
-      const v = indices[t * 3 + k] * 3;
-      colors[v] = col.r; colors[v + 1] = col.g; colors[v + 2] = col.b;
+    const k = triClass[t];
+    if (k === CEILING) continue;
+    const c = k * 3;
+    // Same hue as the point cloud so the two panels agree about what a thing is,
+    // muted toward neutral so a lit solid does not compete with the returns.
+    const r = CLASS_RGB[c] * 0.45 + 0.22;
+    const g = CLASS_RGB[c + 1] * 0.45 + 0.22;
+    const b = CLASS_RGB[c + 2] * 0.45 + 0.22;
+    for (let v = 0; v < 3; v++) {
+      const src = indices[t * 3 + v] * 3;
+      dPos[w] = positions[src]; dPos[w + 1] = positions[src + 1]; dPos[w + 2] = positions[src + 2];
+      dCol[w] = r; dCol[w + 1] = g; dCol[w + 2] = b;
+      w += 3;
     }
   }
-  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(dPos, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(dCol, 3));
   geo.computeVertexNormals();
 
   scene.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
@@ -123,6 +135,7 @@ export function buildRoomWorld(buffer, meta) {
     triLabel,
     dynamic,
     headHeight,
+    ceilingHeight: meta.ceilingHeight,
     bounds: { x: [-halfX + 0.6, halfX - 0.6], z: [zNear, zFar] },
     path(t) {
       const phase = (Math.sin(t * 0.11 - Math.PI / 2) + 1) / 2;

@@ -73,8 +73,11 @@ export class World {
    */
   constructor({
     name, scene, bvh, triRefl, triLabel, dynamic = [], path, update,
-    headHeight = 1.65, bounds = null, stats = {},
+    headHeight = 1.65, bounds = null, stats = {}, ceilingHeight = null,
   }) {
+    /** Set for closed rooms, so the orbit camera stays under the ceiling
+     *  instead of looking down at the top of the slab. */
+    this.ceilingHeight = ceilingHeight;
     this.name = name;
     this.scene = scene;
     this.bvh = bvh;
@@ -91,6 +94,43 @@ export class World {
   }
 
   path(t) { return this.pathFn(t); }
+
+  /**
+   * Find open floor to stand on.
+   *
+   * Spawning at the centre of the walkable rectangle put the walker 23 cm from
+   * a sofa in the scanned room, which saturates every sector and makes the
+   * soundscape meaningless from the first frame. This searches the rectangle for
+   * the position with the most clearance all round.
+   */
+  findSpawn(step = 0.4) {
+    if (!this.bounds) return this.pathFn(0);
+    const [x0, x1] = this.bounds.x;
+    const [z0, z1] = this.bounds.z;
+    const y = this.headHeight;
+
+    let bestPos = null;
+    let bestClearance = -1;
+    const DIRS = 12;
+
+    for (let x = x0; x <= x1; x += step) {
+      for (let z = z0; z <= z1; z += step) {
+        let minClear = Infinity;
+        for (let i = 0; i < DIRS && minClear > bestClearance; i++) {
+          const a = (i / DIRS) * Math.PI * 2;
+          const hit = this.raycast(x, y, z, Math.sin(a), 0, Math.cos(a), 5);
+          const d = hit ? hit.distance : 5;
+          if (d < minClear) minClear = d;
+        }
+        if (minClear > bestClearance) {
+          bestClearance = minClear;
+          bestPos = new THREE.Vector3(x, y, z);
+        }
+      }
+    }
+    this.spawnClearance = bestClearance;
+    return bestPos ?? this.pathFn(0);
+  }
 
   /** Keep a position inside the walkable rectangle. */
   clamp(v) {

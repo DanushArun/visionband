@@ -10,6 +10,7 @@
 
 const _origin = new THREE.Vector3();
 const _dir = new THREE.Vector3();
+const _local = new THREE.Vector3();
 
 export class ToFSensor {
   /**
@@ -32,56 +33,79 @@ export class ToFSensor {
   /**
    * Pinhole-style zone grid: equal angular steps across the FOV on both axes,
    * matching how a VL53L5CX lays out its 8x8 SPAD zones.
-   * Directions are head-relative (mount rotation applied, head rotation not).
+   *
+   * Only the *angles* are stored, not fixed direction vectors, because each ray
+   * is jittered inside its own zone at sample time — see `dirAt`.
    */
   _buildZoneDirections() {
     const dirs = [];
     const half = this.fov / 2;
-    const cy = Math.cos(this.yaw);
-    const sy = Math.sin(this.yaw);
-    const cp = Math.cos(this.pitch);
-    const sp = Math.sin(this.pitch);
+    this.zoneStep = this.fov / this.zones;
+    this.cy = Math.cos(this.yaw);
+    this.sy = Math.sin(this.yaw);
+    this.cp = Math.cos(this.pitch);
+    this.sp = Math.sin(this.pitch);
 
     for (let iy = 0; iy < this.zones; iy++) {
       for (let ix = 0; ix < this.zones; ix++) {
-        const ax = -half + ((ix + 0.5) / this.zones) * this.fov;
-        const ay = -half + ((iy + 0.5) / this.zones) * this.fov;
-        // Sensor-local, looking down +Z
-        const x = Math.tan(ax);
-        const y = Math.tan(ay);
-        const z = 1;
-        // Pitch about X. Signed so that negative pitch aims at the floor:
-        // (0,0,1) with pitch −35° must give a downward y, not an upward one.
-        const y1 = y * cp + z * sp;
-        const z1 = -y * sp + z * cp;
-        // yaw about Y
-        const x2 = x * cy + z1 * sy;
-        const z2 = -x * sy + z1 * cy;
-
-        const v = new THREE.Vector3(x2, y1, z2).normalize();
-        dirs.push({ v, ix, iy });
+        dirs.push({
+          ax: -half + ((ix + 0.5) / this.zones) * this.fov,
+          ay: -half + ((iy + 0.5) / this.zones) * this.fov,
+          ix,
+          iy,
+        });
       }
     }
     return dirs;
   }
+
+  /**
+   * Head-relative direction for a zone, offset by (jx, jy) radians.
+   *
+   * Jittering within the zone footprint is why the map gets dense. A fixed ray
+   * grid re-samples the same directions every tick, so it can never resolve
+   * anything finer than the zone spacing — 13.7 cm at 2 m for a 16x16 sensor.
+   * A real sensor's zone integrates over its whole footprint and the wearer's
+   * head is never perfectly still, so sampling somewhere inside the zone each
+   * tick is both more faithful and vastly more informative: 15 ticks a second
+   * means 15x the distinct directions, at no extra cost per ray.
+   */
+  dirAt(zone, jx, jy, out) {
+    const x = Math.tan(zone.ax + jx);
+    const y = Math.tan(zone.ay + jy);
+    // Pitch about X. Signed so that negative pitch aims at the floor:
+    // (0,0,1) with pitch −35° must give a downward y, not an upward one.
+    const y1 = y * this.cp + this.sp;
+    const z1 = -y * this.sp + this.cp;
+    // Yaw about Y.
+    return out.set(x * this.cy + z1 * this.sy, y1, -x * this.sy + z1 * this.cy).normalize();
+  }
 }
 
 export class SensorRig {
-  constructor({ horizontalCount = 4, groundSensor = true, maxRange = 4.0, rateHz = 15 } = {}) {
+  constructor({ horizontalCount = 4, groundSensor = true, zones = 8, maxRange = 4.0, rateHz = 15 } = {}) {
     this.maxRange = maxRange;
     this.rateHz = rateHz; // VL53L5CX tops out near 15 Hz at 8x8 — a real constraint
-    this.configure(horizontalCount, groundSensor);
+    this.configure(horizontalCount, groundSensor, zones);
   }
 
-  configure(horizontalCount, groundSensor) {
+  /**
+   * @param {number} zones zones per axis. 8 is a VL53L5CX (8x8 = 64 returns per
+   *   sensor, the real discrete part). Higher values are not that sensor — they
+   *   correspond to a ToF *camera*, so treat them as "what a denser sensor would
+   *   buy you", not as a free upgrade to the current BOM.
+   */
+  configure(horizontalCount, groundSensor, zones = this.zones ?? 8) {
     this.horizontalCount = horizontalCount;
     this.groundSensor = groundSensor;
+    this.zones = zones;
     this.sensors = [];
     for (let i = 0; i < horizontalCount; i++) {
       this.sensors.push(
         new ToFSensor({
           id: `h${i}`,
           yaw: (i * Math.PI * 2) / horizontalCount,
+          zones,
           maxRange: this.maxRange,
         })
       );
@@ -90,10 +114,21 @@ export class SensorRig {
       // Aimed down and forward. Without this a drop-off is simply invisible:
       // horizontal sensors see nothing where the floor stops, and "no return"
       // is indistinguishable from open space.
-      this.sensors.push(
-        new ToFSensor({ id: 'ground', yaw: 0, pitch: (-35 * Math.PI) / 180, maxRange: this.maxRange })
-      );
+      this.sensors.push(new ToFSensor({
+        id: 'ground', yaw: 0, pitch: (-35 * Math.PI) / 180, zones, maxRange: this.maxRange,
+      }));
     }
+  }
+
+  /** Total rays per tick — the honest cost of the current configuration. */
+  rayCount() {
+    return this.sensors.length * this.zones * this.zones;
+  }
+
+  /** Preallocated [dx, dy, dz, carveDistance] per ray, refilled each sample. */
+  _ensureRayBuffer() {
+    const need = this.rayCount() * 4;
+    if (!this.rays || this.rays.length < need) this.rays = new Float32Array(need);
   }
 
   /**
@@ -129,13 +164,23 @@ export class SensorRig {
     let hit = 0;
     let dropped = 0;
 
+    this._ensureRayBuffer();
+    const rays = this.rays;
+
     const cy = Math.cos(headYaw);
     const sy = Math.sin(headYaw);
 
     for (const sensor of this.sensors) {
+      const jitter = sensor.zoneStep;
       for (const zone of sensor.dirs) {
+        const rayOff = cast * 4;
         cast++;
-        const lv = zone.v;
+        const lv = sensor.dirAt(
+          zone,
+          (Math.random() - 0.5) * jitter,
+          (Math.random() - 0.5) * jitter,
+          _local
+        );
         // Head-relative bearing/elevation, before world rotation
         const bearing = Math.atan2(lv.x, lv.z);
         const elevation = Math.asin(Math.max(-1, Math.min(1, lv.y)));
@@ -143,6 +188,15 @@ export class SensorRig {
         // Rotate into world by head yaw
         _dir.set(lv.x * cy + lv.z * sy, lv.y, -lv.x * sy + lv.z * cy).normalize();
         _origin.copy(headPos);
+
+        rays[rayOff] = _dir.x;
+        rays[rayOff + 1] = _dir.y;
+        rays[rayOff + 2] = _dir.z;
+        // Negative marks "nothing came back". A real sensor cannot tell that
+        // from open space, so it is still treated as free-space evidence — but
+        // weak evidence, since the beam may simply have been absorbed. This is
+        // why glass thins out on the map rather than reading as a solid wall.
+        rays[rayOff + 3] = -sensor.maxRange;
 
         const h = world.raycast(
           _origin.x, _origin.y, _origin.z, _dir.x, _dir.y, _dir.z, sensor.maxRange
@@ -158,6 +212,7 @@ export class SensorRig {
         // Distance-dependent noise: roughly 1 cm + 2% of range
         const sigma = 0.01 + 0.02 * h.distance;
         const noisy = Math.max(0.02, h.distance + gaussian() * sigma);
+        rays[rayOff + 3] = noisy;
 
         returns.push({
           distance: noisy,
@@ -170,7 +225,7 @@ export class SensorRig {
         });
       }
     }
-    return { returns, cast, hit, dropped };
+    return { returns, cast, hit, dropped, rays, rayCount: cast };
   }
 
   /**

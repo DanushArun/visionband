@@ -44,6 +44,19 @@
   #tag-recon.full { left: 14px; }
   #divider { position: absolute; top: 0; bottom: 0; left: 50%; width: 1px;
     background: var(--line); pointer-events: none; }
+  #hint { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+    font-size: 11px; color: var(--dim); pointer-events: none; white-space: nowrap;
+    background: rgba(8,9,12,0.72); padding: 5px 13px; border-radius: 20px; }
+  #hint b { font-family: var(--mono); font-weight: 500; color: var(--text); }
+  /* Sits under the reconstruction tag: hue = what the return hit,
+     brightness = how strong it is. */
+  #legend { position: absolute; top: 40px; left: calc(50% + 14px); display: flex;
+    flex-wrap: wrap; gap: 3px 11px; max-width: 300px; pointer-events: none;
+    background: rgba(8,9,12,0.7); padding: 7px 10px; border-radius: 7px; }
+  #tag-recon.full ~ #legend { left: 14px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-family: var(--mono);
+    font-size: 10px; color: var(--dim); }
+  .legend-item i { width: 7px; height: 7px; border-radius: 2px; display: block; }
 
   #hud { position: absolute; right: 14px; top: 12px; background: rgba(14,16,21,0.82);
     border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px; min-width: 190px;
@@ -98,11 +111,17 @@
     <canvas id="canvas"></canvas>
     <div class="panel-tag" id="tag-truth">Ground truth</div>
     <div class="panel-tag" id="tag-recon">What the device knows</div>
+    <div id="legend"></div>
     <div id="divider"></div>
+    <div id="hint"><b>W A S D</b> walk · <b>← →</b> turn the head · <b>Shift</b> hurry · drag to orbit · scroll to zoom</div>
     <div id="hud">
+      <div class="row"><span>Scene</span><span id="m-scene">—</span></div>
+      <div class="row"><span>Triangles</span><span id="m-tris">—</span></div>
+      <hr>
       <div class="row"><span>Rays cast / frame</span><span id="m-cast">—</span></div>
       <div class="row"><span>Returns</span><span id="m-ret">—</span></div>
       <div class="row"><span>Dropout</span><span id="m-drop">—</span></div>
+      <div class="row" id="row-scan"><span>Scan time</span><span id="m-scan">—</span></div>
       <hr>
       <div class="row"><span>Horizontal coverage</span><span id="m-cov">—</span></div>
       <div class="row" id="row-gap"><span>Widest blind gap</span><span id="m-gap">—</span></div>
@@ -123,6 +142,12 @@
       <button id="btn-audio" class="primary">Enable sound</button>
       <button id="btn-play">Pause</button>
       <button id="btn-reset">Clear map</button>
+      <label>Scene
+        <select id="sel-scene">
+          <option value="corridor" selected>Corridor (test rig)</option>
+          <option value="room" id="opt-room" disabled>Living room (loading…)</option>
+        </select>
+      </label>
       <label>Sensors
         <select id="sel-sensors">
           <option value="4">4 × 63°</option>
@@ -130,8 +155,16 @@
           <option value="8">8 × 63°</option>
         </select>
       </label>
+      <label>Zones
+        <select id="sel-zones">
+          <option value="8">8×8 — VL53L5CX</option>
+          <option value="16">16×16 — ToF camera</option>
+          <option value="24" selected>24×24 — dense</option>
+          <option value="32">32×32 — very dense</option>
+        </select>
+      </label>
       <label><input type="checkbox" id="chk-ground" checked> Ground sensor</label>
-      <label><input type="checkbox" id="chk-scan" checked> Head scan</label>
+      <label><input type="checkbox" id="chk-auto"> Auto-walk</label>
       <label><input type="checkbox" id="chk-truth" checked> Show truth panel</label>
       <label>Voices <input type="range" id="rng-active" min="1" max="8" value="3"><span class="val" id="val-active">3</span></label>
       <label>Volume <input type="range" id="rng-vol" min="0" max="100" value="50"></label>

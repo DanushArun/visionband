@@ -4,3 +4,13 @@ node_modules/
 
 # Bundled output — regenerate with `node tools/bundle.mjs`
 dist/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Third-party head mesh (95 MB, CC0) — fetch with `python3 cad/fetch_head.py`
+cad/assets/
+
+# Rendered previews — regenerate with `cad/render_preview.py`
+cad/preview/

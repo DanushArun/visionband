@@ -15,15 +15,24 @@ import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-// Dependency order. encoder first — audio.js and main.js both consume it.
+// Dependency order. encoder first — audio.js and main.js both consume it;
+// bvh before world before scene/room, which both build Worlds.
 const MODULES = [
   'sonification/encoder.js',
+  'sim/palette.js',
+  'sim/bvh.js',
+  'sim/world.js',
   'sim/scene.js',
+  'sim/room.js',
   'sim/sensor.js',
   'sim/reconstruct.js',
   'sim/audio.js',
   'sim/main.js',
 ];
+
+// The scanned room ships inside the page: an Artifact is a single file, and the
+// CSP blocks fetching a sibling .bin anyway.
+const ROOM = 'sim/rooms/livingroom';
 
 const strip = (src) =>
   src
@@ -35,11 +44,44 @@ const strip = (src) =>
 
 const banner = (path) => `\n// ${'='.repeat(66)}\n// ${path}\n// ${'='.repeat(66)}\n`;
 
-const code = MODULES.map((m) => banner(m) + strip(readFileSync(join(root, m), 'utf8'))).join('\n');
+const sources = new Map(MODULES.map((m) => [m, readFileSync(join(root, m), 'utf8')]));
+
+// Every module a bundled module imports must itself be bundled. Forgetting one
+// produces a page that loads and then dies on a bare ReferenceError, which is
+// invisible until something is clicked — so it is checked here instead.
+const listed = new Set(MODULES.map((m) => m.split('/').pop()));
+const missing = [];
+for (const [name, src] of sources) {
+  for (const m of src.matchAll(/^\s*import\s.*?from\s+['"](\.[^'"]+)['"]/gm)) {
+    const dep = m[1].split('/').pop();
+    if (!listed.has(dep)) missing.push(`${name} imports ${m[1]}`);
+  }
+}
+if (missing.length) {
+  console.error('Modules imported but not in MODULES:\n  ' + missing.join('\n  '));
+  process.exit(1);
+}
+
+const code = MODULES.map((m) => banner(m) + strip(sources.get(m))).join('\n');
+
+// room.js reads window.__VISIONBAND_ROOM__ when present and falls back to fetch
+// otherwise, so the same source serves the dev server and the bundle.
+let roomPreamble = '';
+try {
+  const meta = JSON.parse(readFileSync(join(root, `${ROOM}.json`), 'utf8'));
+  const b64 = readFileSync(join(root, `${ROOM}.bin`)).toString('base64');
+  roomPreamble =
+    `window.__VISIONBAND_ROOM__ = {\n` +
+    `  meta: ${JSON.stringify(meta)},\n` +
+    `  base64: "${b64}"\n};\n`;
+  console.log(`inlined room: ${meta.triangleCount} tris, ${(b64.length / 1024 / 1024).toFixed(2)} MB base64`);
+} catch {
+  console.warn(`no room at ${ROOM}.bin — bundle will ship without the scanned scene`);
+}
 
 const html = readFileSync(join(root, 'sim/index.html'), 'utf8').replace(
   '<script type="module" src="./main.js"></script>',
-  `<script type="module">\n${code}\n</script>`
+  `<script>\n${roomPreamble}</script>\n<script type="module">\n${code}\n</script>`
 );
 
 // Sanity: a leftover bare import means a module used a form the stripper missed,
